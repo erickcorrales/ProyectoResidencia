@@ -118,3 +118,14 @@ def branch_means_ci(df):
             "n": ic["n"],
         })
     return pd.DataFrame(rows)
+
+
+import pandas as pd
+
+def calcular_kpis_generales(df: pd.DataFrame):
+    """Calcula KPIs globales básicos."""
+    total_ventas = df["net"].sum()
+    total_ordenes = df["order_id"].nunique()
+    ticket_promedio = total_ventas / total_ordenes if total_ordenes > 0 else 0
+    return total_ventas, total_ordenes, ticket_promedio
+

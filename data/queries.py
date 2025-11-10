@@ -1,11 +1,23 @@
 
 # data/queries.py
+
+import pandas as pd
+from data.connection import get_engine  # si ya tienes esta función definida
+from sqlalchemy import text
 from .connection import read_sql_df
+import streamlit as st
+from sqlalchemy import text, bindparam
+from .connection import engine
+
 
 def get_branches():
-    sql = "SELECT DISTINCT sucursal FROM ventas_totales ORDER BY sucursal"
-    df = read_sql_df(sql)
-    return df["sucursal"].tolist()
+    """Devuelve un DataFrame con IDs y nombres legibles de sucursales."""
+    engine = get_engine()
+    query = text("SELECT id_sucursal, nombre, ciudad FROM sucursales ORDER BY ciudad, nombre;")
+    df = pd.read_sql(query, engine)
+    df["label"] = df["ciudad"] + " - " + df["nombre"]
+    return df[["id_sucursal", "label"]]
+
 
 def get_monthly_sales(fecha_inicio: str, fecha_fin: str, sucursales: list[str]):
     sql = """
@@ -49,3 +61,85 @@ def get_table_range_diag():
         FROM ventas_totales
     """
     return read_sql_df(sql)
+
+
+@st.cache_data(ttl=600)
+def get_ventas():
+    """Obtiene todos los registros de ventas_totales."""
+    engine = get_engine()
+    query = text("SELECT * FROM ventas_totales;")
+    df = pd.read_sql(query, engine)
+    return df
+
+@st.cache_data(ttl=600)
+def get_sucursales():
+    """Obtiene la lista de sucursales."""
+    engine = get_engine()
+    query = text("SELECT * FROM sucursales;")
+    df = pd.read_sql(query, engine)
+    return df
+
+
+from sqlalchemy import text
+from .connection import get_engine
+
+
+def get_top_pizzas(top_n=5, sucursales_ids=None):
+    """
+    Devuelve las pizzas más vendidas (por cantidad y ventas),
+    mostrando el nombre desde la tabla pizzas_info.
+    Si se especifican sucursales, filtra por ellas.
+    """
+    engine = get_engine()
+
+    base_sql = """
+        SELECT 
+            info.name AS nombre,             -- nombre legible de la pizza
+            SUM(v.quantity) AS cantidad, 
+            SUM(v.net) AS ventas
+        FROM ventas_totales v
+        JOIN pizzas p ON v.pizza_id = p.pizza_id
+        JOIN pizzas_info info ON p.pizza_type_id = info.pizza_type_id
+        {where_clause}
+        GROUP BY info.name
+        ORDER BY ventas DESC
+        LIMIT :top_n;
+    """
+
+    params = {"top_n": top_n}
+    where_clause = ""
+
+    if sucursales_ids:
+        placeholders = ", ".join([f":suc_{i}" for i in range(len(sucursales_ids))])
+        where_clause = f"WHERE v.id_sucursal IN ({placeholders})"
+        for i, val in enumerate(sucursales_ids):
+            params[f"suc_{i}"] = val
+
+    sql = base_sql.format(where_clause=where_clause)
+
+    with engine.connect() as con:
+        result = con.execute(text(sql), params)
+        rows = result.fetchall()
+
+    df = pd.DataFrame(rows, columns=["nombre", "cantidad", "ventas"])
+
+    print(f"[DEBUG get_top_pizzas] sucursales_ids={sucursales_ids}, filas={len(df)}")
+    return df
+
+
+def get_top_sucursales(top_n: int = 5):
+    """
+    Retorna el Top N de sucursales con mayores ventas totales.
+    """
+    sql = """
+        SELECT 
+            s.nombre AS nombre,
+            SUM(v.net) AS net
+        FROM ventas_totales v
+        JOIN sucursales s ON v.id_sucursal = s.id_sucursal
+        GROUP BY s.nombre
+        ORDER BY net DESC
+        LIMIT :top_n;
+    """
+    df = read_sql_df(sql, params={"top_n": top_n})
+    return df

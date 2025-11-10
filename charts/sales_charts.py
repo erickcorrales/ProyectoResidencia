@@ -105,3 +105,54 @@ def chart_small_multiples(df: pd.DataFrame, title: str):
         )
         .properties(width=900, height=220, title=title)
     )
+    
+    
+    
+import streamlit as st
+
+def grafico_ranking_sucursales(df, top_n=5):
+    """Gráfico de ranking de sucursales con formato de miles y tooltip."""
+    chart = (
+        alt.Chart(df)
+        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+        .encode(
+            x=alt.X("net:Q", title="Ventas Totales ($)", axis=alt.Axis(format=",.0f")),
+            y=alt.Y("nombre:N", sort="-x", title="Sucursal"),
+            tooltip=[
+                alt.Tooltip("nombre:N", title="Sucursal"),
+                alt.Tooltip("net_formateado:N", title="Ventas Totales"),
+            ],
+            color=alt.Color("net:Q", scale=alt.Scale(scheme="blues"), legend=None)
+        )
+        .properties(width=700, height=400, title=f"🏆 Top {top_n} Sucursales por Ventas Totales")
+    )
+    st.altair_chart(chart, use_container_width=True)
+  
+
+
+def grafico_ranking_generico(df, titulo="Ranking"):
+    """
+    Espera columnas: ['nombre','ventas','cantidad'] y opcionales
+    'ventas_formateadas','cantidad_formateada' (si las pasas, se usan en tooltip).
+    """
+    # Asegurar tipos numéricos
+    for c in ("ventas", "cantidad"):
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+        .encode(
+            x=alt.X("ventas:Q", title="Ventas ($)", axis=alt.Axis(format=",.0f")),
+            y=alt.Y("nombre:N", sort="-x", title="Elemento"),
+            tooltip=[
+                alt.Tooltip("nombre:N", title="Nombre"),
+                alt.Tooltip("ventas:Q", title="Ventas ($)", format=",.2f"),
+                alt.Tooltip("cantidad:Q", title="Cantidad", format=",.0f"),
+            ],
+            color=alt.Color("nombre:N", legend=None)
+        )
+        .properties(width=720, height=380, title=titulo)
+    )
+    st.altair_chart(chart, use_container_width=True)

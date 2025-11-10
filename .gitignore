@@ -1,0 +1,38 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.env
+.venv
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+.cache/
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs / tmp
+*.log
+tmp/
+temp/
+
+# Datos pesados (ajusta a tu realidad)
+data/*.csv
+data/*.parquet
+data/*.xlsx
+*.zip
+
+# VSCode
+.vscode/

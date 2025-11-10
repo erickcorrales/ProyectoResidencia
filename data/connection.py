@@ -1,34 +1,46 @@
-
 # data/connection.py
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import pandas as pd
-from sqlalchemy.sql import text, bindparam
-import streamlit as st
-from .config import DB_USER, DB_PASS, DB_HOST, DB_PORT, DB_NAME
+import os
 
-@st.cache_resource(show_spinner=False)
-def get_engine():
-    url = (
-        f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-        "?charset=utf8mb4"
+# ============================================
+# 🔧 CONFIGURACIÓN DE CONEXIÓN
+# ============================================
+
+DB_USER = os.getenv("DB_USER", "root")
+DB_PASS = os.getenv("DB_PASS", "Zaiperaldama1!")   # cámbialo si es distinto
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "3306")
+DB_NAME = os.getenv("DB_NAME", "pizzasnew2")
+
+# ============================================
+# 🚀 CREAR MOTOR SQLAlchemy
+# ============================================
+
+try:
+    engine = create_engine(
+        f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
+        pool_pre_ping=True,
     )
-    engine = create_engine(url, pool_pre_ping=True, future=True)
+    print("✅ Conexión establecida con la base de datos.")
+except Exception as e:
+    print("❌ Error al conectar con la base de datos:", e)
+
+# ============================================
+# 🧩 FUNCIONES COMPATIBLES
+# ============================================
+
+def get_engine():
+    """Devuelve el motor global de conexión."""
     return engine
 
-@st.cache_data(show_spinner=True)
-def read_sql_df(sql, params=None, expanding=None):
+
+def read_sql_df(query: str, params=None):
     """
-    Lee SQL en DataFrame. Si 'expanding' es dict de {nombre_param: iterable},
-    aplica bindparam(expanding=True) para cláusulas IN.
+    Ejecuta una consulta SQL y devuelve el resultado como DataFrame.
+    query: puede ser string o sqlalchemy.text
+    params: diccionario opcional con parámetros de la consulta
     """
-    engine = get_engine()
-    if expanding:
-        # construye text() con bindparam(expanding)
-        t = text(sql)
-        for pname in expanding.keys():
-            t = t.bindparams(bindparam(pname, expanding=True))
-        with engine.connect() as con:
-            return pd.read_sql(t, con, params=params)
-    else:
-        with engine.connect() as con:
-            return pd.read_sql(text(sql), con, params=params)
+    with engine.connect() as con:
+        df = pd.read_sql(text(query), con, params=params)
+    return df

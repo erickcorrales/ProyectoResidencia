@@ -10,10 +10,17 @@ MONTHS_DICT = {calendar.month_name[i]: i for i in range(1, 13)}
 def sidebar_filters():
     st.sidebar.header("📂 Menú")
     vista = st.sidebar.radio(
-        "Selecciona una opción",
-        ["Filtros", "Comparar sucursales", "xxyyy", "ydsjvsdu"],
-        index=0
-    )
+    "Selecciona una opción",
+    [
+        "Filtros",
+        "Comparar sucursales",
+        "Indicadores Clave (KPIs)",
+        "Ranking de Ventas",
+        "Ranking de Productos (Pizzas)"
+    ],
+    index=0
+)
+
 
     st.sidebar.header("🔧 Filtros")
     anios = list(range(2020, 2026))
@@ -22,12 +29,24 @@ def sidebar_filters():
     mes_inicio  = st.sidebar.selectbox("Mes de inicio", MONTHS, index=0)
     mes_fin     = st.sidebar.selectbox("Mes de fin", MONTHS, index=11)
 
-    sucs_disp = get_branches()
-    sucs_sel = st.sidebar.multiselect(
+    sucs_df = get_branches()
+
+    # Diccionario para mapear nombre legible → id real
+    suc_label_to_id = dict(zip(sucs_df["label"], sucs_df["id_sucursal"]))
+
+    # Lista de nombres legibles (para mostrar)
+    sucs_disp = sucs_df["label"].tolist()
+
+    # Multiselect visible (muestra nombres, devuelve texto)
+    sucs_sel_labels = st.sidebar.multiselect(
         "Sucursal(es)",
         sucs_disp,
         default=sucs_disp[:2] if sucs_disp else []
     )
+
+# Convertir los nombres seleccionados a IDs reales
+    sucs_sel = [suc_label_to_id[label] for label in sucs_sel_labels]
+
 
     st.sidebar.subheader("Opciones del gráfico")
     show_avg = st.sidebar.checkbox("Mostrar línea de promedio", value=True)
