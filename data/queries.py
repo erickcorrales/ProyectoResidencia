@@ -111,7 +111,7 @@ def get_top_pizzas(top_n=5, sucursales_ids=None):
 
     if sucursales_ids:
         placeholders = ", ".join([f":suc_{i}" for i in range(len(sucursales_ids))])
-        where_clause = f"WHERE v.id_sucursal IN ({placeholders})"
+        where_clause = f"WHERE v.sucursal IN ({placeholders})"
         for i, val in enumerate(sucursales_ids):
             params[f"suc_{i}"] = val
 
@@ -127,19 +127,77 @@ def get_top_pizzas(top_n=5, sucursales_ids=None):
     return df
 
 
-def get_top_sucursales(top_n: int = 5):
-    """
-    Retorna el Top N de sucursales con mayores ventas totales.
-    """
-    sql = """
+def get_top5_sucursales():
+    query = text("""
         SELECT 
-            s.nombre AS nombre,
-            SUM(v.net) AS net
+            s.id_sucursal,
+            s.nombre AS sucursal,
+            s.ciudad,
+            SUM(v.net) AS ventas_totales,
+            COUNT(DISTINCT v.order_id) AS total_ordenes,
+            SUM(v.net) / COUNT(DISTINCT v.order_id) AS ticket_promedio
         FROM ventas_totales v
-        JOIN sucursales s ON v.id_sucursal = s.id_sucursal
-        GROUP BY s.nombre
-        ORDER BY net DESC
-        LIMIT :top_n;
-    """
-    df = read_sql_df(sql, params={"top_n": top_n})
+        JOIN sucursales s 
+            ON v.id_sucursal = s.id_sucursal
+        GROUP BY s.id_sucursal, s.nombre, s.ciudad
+        ORDER BY ventas_totales DESC
+        LIMIT 5;
+    """)
+
+    df = pd.read_sql(query, engine)
     return df
+
+
+
+
+
+
+
+# =============================================
+# 📊 COMPARAR SUCURSALES: OBTENER VENTAS MENSUALES
+# =============================================
+def query_branch_monthly_sales(fecha_inicio: str, fecha_fin: str, sucursales: list[str]):
+    """
+    Retorna ventas mensuales por sucursal, dentro del rango seleccionado.
+    Columnas: sucursal, anio, mes, total_ventas
+    """
+    if not sucursales:
+        return pd.DataFrame()
+
+    placeholders = ", ".join([f":s{i}" for i in range(len(sucursales))])
+
+    sql = f"""
+        SELECT
+            sucursal,
+            YEAR(fecha_compra) AS anio,
+            MONTH(fecha_compra) AS mes,
+            SUM(net) AS total_ventas
+        FROM ventas_totales
+        WHERE fecha_compra BETWEEN :fi AND :ff
+        AND sucursal IN ({placeholders})
+        GROUP BY sucursal, anio, mes
+        ORDER BY anio, mes;
+    """
+
+    params = {"fi": fecha_inicio, "ff": fecha_fin}
+    for i, suc in enumerate(sucursales):
+        params[f"s{i}"] = suc
+
+    df = read_sql_df(sql, params=params)
+    return df
+
+
+
+
+def get_pareto_productos():
+    query = """
+        SELECT 
+            info.name AS producto,
+            SUM(v.net) AS ventas
+        FROM ventas_totales v
+        JOIN pizzas p ON v.pizza_id = p.pizza_id
+        JOIN pizzas_info info ON p.pizza_type_id = info.pizza_type_id
+        GROUP BY info.name
+        ORDER BY ventas DESC;
+    """
+    return read_sql_df(query)

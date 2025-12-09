@@ -3,6 +3,7 @@
 # app.py
 import os, sys
 import streamlit as st
+from ui.views import view_comparar_sucursales
 
 # ============================================
 # 🔧 RUTAS Y CONFIGURACIÓN
@@ -37,6 +38,7 @@ st.title("🍕 Dashboard de Ventas")
 # ============================================
 f = sidebar_filters()
 
+
 # Rango de fechas real
 fecha_inicio, fecha_fin, m_ini, m_fin = compute_date_range(
     f["anio_inicio"], f["anio_fin"], f["months_dict"],
@@ -59,15 +61,23 @@ opcion = st.sidebar.selectbox(
 st.sidebar.caption(f"Debug: sección seleccionada ⇒ {opcion}")
 
 # ============================================
-# 🧠 VISTAS
+#  VISTAS
 # ============================================
 if "kpi" in opcion.lower():
     kpis_view()
 
-elif "sucursal" in opcion.lower():
-    view_placeholder("Comparar Sucursales")
+
 
 elif "pizza" in opcion.lower():
     ranking_pizzas_view()
+
+elif "sucursal" in opcion.lower():
+    view_comparar_sucursales(
+    fecha_inicio=fecha_inicio,
+    fecha_fin=fecha_fin,
+    sucursales=f["sucs_sel"],
+    map_sucursales=f["suc_id_to_label"]
+)
+
     
-print("🧩 DEBUG opción seleccionada:", opcion)
+print(" DEBUG opción seleccionada:", opcion)

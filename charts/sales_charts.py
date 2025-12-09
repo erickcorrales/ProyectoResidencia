@@ -46,46 +46,6 @@ def chart_comparison_lines(df: pd.DataFrame, title: str):
     )
     
 
-# [NUEVO] Barras de error (IC95%) por sucursal
-def chart_branch_means_ci(df_stats, title: str = "Media mensual con IC 95% por sucursal"):
-    """
-    df_stats: DataFrame con columnas ['sucursal','mean','li','ls','n'] numéricas.
-    Dibuja un punto en la media y una barra vertical (li..ls) como errorbar.
-    """
-    import altair as alt
-    import pandas as pd
-
-    # Asegurar que los valores sean numéricos
-    for col in ["mean", "li", "ls", "n"]:
-        if col in df_stats.columns:
-            df_stats[col] = pd.to_numeric(df_stats[col], errors="coerce")
-
-    base = alt.Chart(df_stats).encode(
-        x=alt.X("sucursal:N", title="Sucursal")
-    )
-
-    # Barra de error explícita (línea vertical)
-    error_rule = base.mark_rule(color="red", strokeWidth=3).encode(
-        y="li:Q",
-        y2="ls:Q",
-        tooltip=[
-            alt.Tooltip("sucursal:N", title="Sucursal"),
-            alt.Tooltip("mean:Q", title="Media ($)", format=",.2f"),
-            alt.Tooltip("li:Q", title="IC95% LI", format=",.2f"),
-            alt.Tooltip("ls:Q", title="IC95% LS", format=",.2f"),
-            alt.Tooltip("n:Q", title="n"),
-        ]
-    )
-
-    # Punto de la media
-    point = base.mark_point(size=120, color="white", filled=True).encode(
-        y="mean:Q"
-    )
-
-    return (error_rule + point).properties(
-        width=700, height=420, title=title
-    )
-
 
 
 def chart_small_multiples(df: pd.DataFrame, title: str):
@@ -110,6 +70,7 @@ def chart_small_multiples(df: pd.DataFrame, title: str):
     
 import streamlit as st
 
+## top sucursales anterior, talvez se peude eliminar
 def grafico_ranking_sucursales(df, top_n=5):
     """Gráfico de ranking de sucursales con formato de miles y tooltip."""
     chart = (
@@ -127,7 +88,29 @@ def grafico_ranking_sucursales(df, top_n=5):
         .properties(width=700, height=400, title=f"🏆 Top {top_n} Sucursales por Ventas Totales")
     )
     st.altair_chart(chart, use_container_width=True)
-  
+
+
+def chart_top5(df):
+    return (
+        alt.Chart(df)
+        .mark_bar(cornerRadius=4)
+        .encode(
+            x=alt.X("ventas_totales:Q", title="Ventas Totales ($)"),
+            y=alt.Y("sucursal:N", sort="-x", title="Sucursal"),
+            tooltip=[
+                alt.Tooltip("sucursal:N", title="Sucursal"),
+                alt.Tooltip("ciudad:N", title="Ciudad"),
+                alt.Tooltip("ventas_totales:Q", title="Ventas Totales", format="$.2f"),
+                alt.Tooltip("total_ordenes:Q", title="Total Órdenes", format=","),
+                alt.Tooltip("ticket_promedio:Q", title="Ticket Promedio", format="$.2f")
+            ]
+        )
+        .properties(
+            height=300,
+            width="container"
+        )
+        .configure_mark(opacity=0.9)
+    )
 
 
 def grafico_ranking_generico(df, titulo="Ranking"):
@@ -156,3 +139,128 @@ def grafico_ranking_generico(df, titulo="Ranking"):
         .properties(width=720, height=380, title=titulo)
     )
     st.altair_chart(chart, use_container_width=True)
+    
+    
+    
+def chart_participacion_sucursales(df):
+    df = df.copy()
+    df["label"] = df["nombre"] + " (" + df["ciudad"] + ")"
+    
+    chart = (
+        alt.Chart(df)
+        .mark_arc(innerRadius=80)
+        .encode(
+            theta=alt.Theta("ventas_totales:Q", title="Ventas"),
+            color=alt.Color("label:N", title="Sucursal"),
+            tooltip=[
+                alt.Tooltip("nombre:N", title="Sucursal"),
+                alt.Tooltip("ciudad:N", title="Ciudad"),
+                alt.Tooltip("ventas_totales:Q", title="Ventas ($)", format=",.2f"),
+                alt.Tooltip("porcentaje:Q", title="Participación (%)", format=",.2f"),
+            ]
+        )
+        .properties(title="Participación de Ventas por Sucursal", width=600, height=500)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+
+
+def chart_crecimiento_anual(df):
+    """
+    Gráfico de línea para crecimiento anual YoY.
+    df debe tener columnas: anio, ventas, crecimiento
+    """
+    chart = (
+        alt.Chart(df)
+        .mark_line(point=True, strokeWidth=3)
+        .encode(
+            x=alt.X("anio:O", title="Año"),
+            y=alt.Y("ventas:Q", title="Ventas ($)", axis=alt.Axis(format=",.0f")),
+            tooltip=[
+                alt.Tooltip("anio:O", title="Año"),
+                alt.Tooltip("ventas:Q", title="Ventas Totales", format=",.2f"),
+                alt.Tooltip("crecimiento:Q", title="Crecimiento (%)", format=".2f")
+            ]
+        )
+        .properties(
+            width=800,
+            height=350,
+            title="Crecimiento Anual de Ventas (YoY)"
+        )
+    )
+    return chart
+
+
+
+
+def chart_pareto(df):
+    """
+    Gráfico Pareto 80/20.
+    df debe tener columnas: nombre, ventas, porcentaje_acum
+    """
+    base = alt.Chart(df).encode(
+        x=alt.X("nombre:N", sort=df["nombre"].tolist(), title="Producto"),
+    )
+
+    barras = base.mark_bar(color="#4c72b0").encode(
+        y=alt.Y("ventas:Q", title="Ventas ($)", axis=alt.Axis(format=",.0f")),
+        tooltip=[
+            alt.Tooltip("nombre:N", title="Producto"),
+            alt.Tooltip("ventas:Q", title="Ventas", format=",.2f"),
+            alt.Tooltip("porcentaje_acum:Q", title="% Acumulado", format=".2f")
+        ]
+    )
+
+    linea = base.mark_line(color="red", point=True).encode(
+        y=alt.Y("porcentaje_acum:Q", title="Porcentaje acumulado (%)"),
+    )
+
+    return (barras + linea).properties(width=900, height=400, title="Análisis de Pareto 80/20")
+
+
+
+
+import altair as alt
+
+
+def grafico_pareto_productos(df):
+    import altair as alt
+
+    # Asegurar que el dataframe viene ordenado
+    df = df.sort_values(by="ventas", ascending=False).reset_index(drop=True)
+
+    # === Gráfico de barras ===
+    bars = (
+        alt.Chart(df)
+        .mark_bar(color="#4CC9F0")
+        .encode(
+            x=alt.X("producto:N", sort=df["producto"].tolist(), title="Producto"),
+            y=alt.Y("ventas:Q", title="Ventas ($)"),
+            tooltip=[
+                alt.Tooltip("producto:N", title="Producto"),
+                alt.Tooltip("ventas:Q", title="Ventas ($)", format=",.2f"),
+                alt.Tooltip("porcentaje_acum:Q", title="% Acumulado", format=".2%")
+            ],
+        )
+    )
+
+    # === Línea Pareto (PORCENTAJE ACUMULADO) ===
+    line = (
+        alt.Chart(df)
+        .mark_line(point=True, color="#FF6D00", strokeWidth=3)
+        .encode(
+            x=alt.X("producto:N", sort=df["producto"].tolist()),
+            y=alt.Y("porcentaje_acum:Q",
+                    axis=alt.Axis(format="%", title="% Acumulado")),
+        )
+    )
+
+    chart = (
+        alt.layer(bars, line)
+        .resolve_scale(y="independent")
+        .properties(width=1100, height=450, title="Pareto de Ventas por Producto")
+    )
+
+    return chart
